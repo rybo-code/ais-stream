@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv("../key/ais-stream.env")
-api_key = os.getenv("APIKey")
+api_key = os.getenv("API_KEY")
 
 
 def write_json_to_file(data, file_path):
@@ -34,6 +34,8 @@ async def connect_ais_stream_mmsi(args):
             "BoundingBoxes": [[[-90, -180], [90, 180]]],  # Required!
             "FiltersShipMMSI": mmsis,  # Optional!
         }
+        if args.positions == True:
+            subscribe_message["FilterMessageTypes"] = ["PositionReport"]
 
         subscribe_message_json = json.dumps(subscribe_message)
         await websocket.send(subscribe_message_json)
@@ -55,16 +57,18 @@ async def connect_ais_stream_mmsi(args):
 
 async def connect_ais_stream_geofence(args):
     num_messages = 0
+    # NOTE websocket subscription takes [lat,lon,lat,lon] so x and y values are inverted. Maybe??
+    bbox = [args.y1, args.x1], [args.y2, args.x2]
 
-    # bbox format: tuple([-90,180],[90,-180])
-    # bbox = list(args.coord1, args.coord2)
-    logging.info(f"searching bbox:{args.coord1,args.coord2}")
+    logging.info(f"searching bbox:{bbox}")
 
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
         subscribe_message = {
-            "APIKey": api_key,  # Required !
-            "BoundingBoxes": [[args.coord1, args.coord2]],  # Required!
+            "APIKey": api_key,
+            "BoundingBoxes": [bbox],
         }
+        if args.positions == True:
+            subscribe_message["FilterMessageTypes"] = ["PositionReport"]
 
         subscribe_message_json = json.dumps(subscribe_message)
         await websocket.send(subscribe_message_json)
@@ -77,7 +81,7 @@ async def connect_ais_stream_geofence(args):
             if not "error" in message.keys():
                 write_json_to_file(
                     message,
-                    f"{args.outpath}.json",
+                    f"{args.outpath}\data.json",
                 )
                 num_messages += 1
 
@@ -122,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit",
         type=int,
-        default=None,
+        default=1000,
         required=False,
         help="Max num msgs to wait for",
     )
@@ -130,26 +134,46 @@ if __name__ == "__main__":
     parser.add_argument(
         "--outpath",
         type=str,
-        default="./ais_data/data",
+        default="./ais_data",
         help="Output filepath",
     )
 
     parser.add_argument(
-        "--coord1",
-        type=tuple,
-        required=False,
-        default=(-90, 180),
-        help="BBOX coord1",
+        "--x1",
+        type=float,
+        default="-90",
+        help="Bounding box longitude 1",
+    )
+    parser.add_argument(
+        "--y1",
+        type=float,
+        default="180",
+        help="Bounding box latitude 1",
+    )
+    parser.add_argument(
+        "--x2",
+        type=float,
+        default="90",
+        help="Bounding box longitude 2",
+    )
+    parser.add_argument(
+        "--y2",
+        type=float,
+        default="-180",
+        help="Bounding box latitude 1",
+    )
+    parser.add_argument(
+        "--env",
+        type=str,
+        default="../env/ais-stream.env",
+        help="Path to your env file",
     )
 
     parser.add_argument(
-        "--coord2",
-        type=tuple,
-        required=False,
-        default=(90, -180),
-        help="BBOX coord2",
+        "--positions",
+        type=bool,
+        default=True,
+        help="Download position msgs only",
     )
-
     args = parser.parse_args()
-
     asyncio.run(main(args))  # Pass the coroutine object to asyncio.run()

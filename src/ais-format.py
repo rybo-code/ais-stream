@@ -11,7 +11,7 @@ def write_csv_to_file(data, file_path):
 
     # Explode the DataFrame to separate rows for each nested field
     df_exploded = df.apply(lambda x: x.explode() if x.dtype == "O" else x)
-    df_exploded.to_csv(file_path + ".csv", index=False)
+    df_exploded.to_csv(file_path + "/data.csv", index=False)
 
     return
 
@@ -25,7 +25,7 @@ def write_json_to_file(data, file_path):
 def write_geojson_to_file(data, output_path, incl_polyline=False):
 
     msgs_geojson = transform_to_geojson(data, incl_polyline)
-    write_json_to_file(msgs_geojson, output_path)
+    write_json_to_file(msgs_geojson, output_path + "/data.geojson")
     return
 
 
@@ -86,21 +86,21 @@ def transform_to_geojson(json_data, incl_polyline):
 
 
 def main(args):
-    json_file_path = args.inpath
+    json_file_path = args.infile
     data = [json.loads(line) for line in open(json_file_path)]
     # Save the messages in geojson format as points and lines
-    write_geojson_to_file(data, args.outpath + ".geojson", args.trackline)
+    write_geojson_to_file(data, args.outpath, args.trackline)
     write_csv_to_file(data, args.outpath)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Listen for AIS from aisstream.io")
+    parser = argparse.ArgumentParser(description="L isten for AIS from aisstream.io")
 
     parser.add_argument(
-        "--inpath",
+        "--infile",
         type=str,
         default="./ais_data/data.json",
-        help="Output filepath",
+        help="Input filep",
     )
 
     parser.add_argument(
