@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import argparse
 import logging
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,7 +35,7 @@ async def connect_ais_stream_mmsi(args):
             "BoundingBoxes": [[[-90, -180], [90, 180]]],  # Required!
             "FiltersShipMMSI": mmsis,  # Optional!
         }
-        if args.positions == True:
+        if args.position == True:
             subscribe_message["FilterMessageTypes"] = ["PositionReport"]
 
         subscribe_message_json = json.dumps(subscribe_message)
@@ -63,18 +64,23 @@ async def connect_ais_stream_geofence(args):
     logging.info(f"searching bbox:{bbox}")
 
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
+        # Initialize tqdm progress bar
+
         subscribe_message = {
             "APIKey": api_key,
             "BoundingBoxes": [bbox],
         }
-        if args.positions == True:
+        if args.position == True:
             subscribe_message["FilterMessageTypes"] = ["PositionReport"]
 
         subscribe_message_json = json.dumps(subscribe_message)
         await websocket.send(subscribe_message_json)
         logging.info(f"Subscribed to websocket. Listening...")
-
+        pbar = tqdm(desc="Records received", unit=" records")
         async for message_json in websocket:
+
+            # Update tqdm progress bar
+            pbar.update(1)
 
             message = json.loads(message_json)
 
@@ -90,6 +96,7 @@ async def connect_ais_stream_geofence(args):
 
             else:
                 logging.warning(message["error"])
+    pbar.close()
 
 
 async def main(args):
@@ -170,10 +177,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--positions",
+        "--position",
         type=bool,
-        default=True,
-        help="Download position msgs only",
+        default="True",
+        help="Msg type to download",
     )
     args = parser.parse_args()
     asyncio.run(main(args))  # Pass the coroutine object to asyncio.run()
